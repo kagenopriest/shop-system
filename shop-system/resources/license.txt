@@ -1,0 +1,11 @@
+End User License Agreement (EULA)
+
+This application is provided "as is", without warranty of any kind.
+By installing this application, you agree to the terms and conditions.
+
+1. Grant of License.
+2. Restrictions.
+3. Termination.
+4. Disclaimer of Warranty.
+
+(C) 2024 ShopMaster System. All rights reserved.

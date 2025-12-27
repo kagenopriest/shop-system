@@ -11,18 +11,30 @@ export function initCron() {
         console.log('Starting daily backup...');
 
         try {
-            const sourcePath = path.join(process.cwd(), 'prisma', 'dev.db');
+            // Check for Electron Config
+            const userDataPath = process.env.USER_DATA_PATH;
+            let sourcePath = path.join(process.cwd(), 'prisma', 'dev.db');
+            let destFolder = path.join(os.homedir(), 'Downloads', 'ProShopBackups');
 
-            // System Independent: Try to find Downloads folder
-            const homeDir = os.homedir();
-            const downloadDir = path.join(homeDir, 'Downloads', 'ProShopBackups'); // Subfolder to be organized
+            if (userDataPath) {
+                try {
+                    const configPath = path.join(userDataPath, 'config.json');
+                    if (fs.existsSync(configPath)) {
+                        const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+                        if (config.dbPath) sourcePath = config.dbPath;
+                        if (config.backupPath) destFolder = config.backupPath;
+                    }
+                } catch (e) {
+                    console.error("Error reading config for backup:", e);
+                }
+            }
 
-            if (!fs.existsSync(downloadDir)) {
-                fs.mkdirSync(downloadDir, { recursive: true });
+            if (!fs.existsSync(destFolder)) {
+                fs.mkdirSync(destFolder, { recursive: true });
             }
 
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-            const destPath = path.join(downloadDir, `shop-backup-${timestamp}.db`);
+            const destPath = path.join(destFolder, `shop-backup-${timestamp}.db`);
 
             fs.copyFileSync(sourcePath, destPath);
             console.log(`Database backed up successfully to: ${destPath}`);

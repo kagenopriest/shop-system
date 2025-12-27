@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, ShoppingCart, Trash2, Plus, Minus, CreditCard } from 'lucide-react';
+import { Search, ShoppingCart, Trash2, Plus, Minus, CreditCard, PackagePlus } from 'lucide-react';
 import { Category, Product } from '@prisma/client';
 import CheckoutDialog from '@/components/sales/CheckoutDialog';
+import QuickAddProductDialog from '@/components/sales/QuickAddProductDialog';
 
 type ProductWithCategory = Product & { category: Category | null };
 
@@ -19,17 +20,25 @@ export default function SalesPage() {
     const [cart, setCart] = useState<CartItem[]>([]);
     const [search, setSearch] = useState('');
     const [loading, setLoading] = useState(true);
+
+    // Dialog States
     const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+    const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
 
     useEffect(() => {
-        fetch('/api/products')
-            .then(res => res.json())
-            .then(data => {
-                setProducts(data);
-                setLoading(false);
-            })
-            .catch(err => console.error(err));
+        fetchProducts();
     }, []);
+
+    const fetchProducts = async () => {
+        try {
+            const res = await fetch('/api/products');
+            const data = await res.json();
+            setProducts(data);
+            setLoading(false);
+        } catch (err) {
+            console.error(err);
+        }
+    };
 
     const filteredProducts = products.filter(p =>
         p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -68,6 +77,16 @@ export default function SalesPage() {
         router.push(`/receipt/${saleId}`);
     };
 
+    const handleProductAdded = (newProduct: ProductWithCategory) => {
+        // Add to product list
+        setProducts(prev => [newProduct, ...prev]);
+        // Add to cart immediately
+        addToCart(newProduct);
+        // Clear search? Optional. Let's keep it or clear it. 
+        // Clearing it makes sense so they see the result.
+        setSearch('');
+    };
+
     return (
         <div className="flex h-[calc(100vh-6rem)] gap-6">
             {/* Product Section */}
@@ -88,24 +107,45 @@ export default function SalesPage() {
                     {loading ? (
                         <div className="text-center py-10 text-muted-foreground">Loading products...</div>
                     ) : (
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                            {filteredProducts.map(product => (
-                                <button
-                                    key={product.id}
-                                    onClick={() => addToCart(product)}
-                                    className="flex flex-col text-left p-4 rounded-xl border hover:border-primary/50 hover:bg-muted/30 transition-all group"
-                                >
-                                    <div className="aspect-square bg-muted rounded-lg mb-3 w-full flex items-center justify-center text-muted-foreground group-hover:bg-background">
-                                        {product.imageUrl ? <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover rounded-lg" /> : <div className="text-xs">No Image</div>}
+                        <>
+                            {filteredProducts.length === 0 && search && (
+                                <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
+                                    <div className="bg-muted p-4 rounded-full">
+                                        <PackagePlus size={32} className="text-muted-foreground" />
                                     </div>
-                                    <h3 className="font-semibold line-clamp-1">{product.name}</h3>
-                                    <div className="flex justify-between items-center mt-1 w-full">
-                                        <span className="text-sm text-green-600 font-bold">₹{product.price}</span>
-                                        <span className="text-xs text-muted-foreground">In: {product.stock}</span>
+                                    <div>
+                                        <p className="font-medium">Product not found</p>
+                                        <p className="text-sm text-muted-foreground">"{search}" is not in your inventory.</p>
                                     </div>
-                                </button>
-                            ))}
-                        </div>
+                                    <button
+                                        onClick={() => setIsQuickAddOpen(true)}
+                                        className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 flex items-center gap-2"
+                                    >
+                                        <Plus size={16} />
+                                        Add to Inventory
+                                    </button>
+                                </div>
+                            )}
+
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                                {filteredProducts.map(product => (
+                                    <button
+                                        key={product.id}
+                                        onClick={() => addToCart(product)}
+                                        className="flex flex-col text-left p-4 rounded-xl border hover:border-primary/50 hover:bg-muted/30 transition-all group"
+                                    >
+                                        <div className="aspect-square bg-muted rounded-lg mb-3 w-full flex items-center justify-center text-muted-foreground group-hover:bg-background overflow-hidden">
+                                            {product.imageUrl ? <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" /> : <div className="text-xs">No Image</div>}
+                                        </div>
+                                        <h3 className="font-semibold line-clamp-1">{product.name}</h3>
+                                        <div className="flex justify-between items-center mt-1 w-full">
+                                            <span className="text-sm text-green-600 font-bold">₹{product.price}</span>
+                                            <span className="text-xs text-muted-foreground">In: {product.stock}</span>
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        </>
                     )}
                 </div>
             </div>
@@ -171,6 +211,14 @@ export default function SalesPage() {
                     name: c.product.name
                 }))}
             />
+
+            <QuickAddProductDialog
+                isOpen={isQuickAddOpen}
+                onClose={() => setIsQuickAddOpen(false)}
+                onProductAdded={handleProductAdded}
+                initialName={search}
+            />
         </div>
     )
 }
+
